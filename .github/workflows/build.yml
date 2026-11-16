@@ -21,6 +21,7 @@ jobs:
           git checkout --detach FETCH_HEAD
           git rev-parse HEAD
           grep -q 'Device/philips_ly1800' target/linux/qualcommax/image/ipq60xx.mk
+          python3 -c 'from pathlib import Path; p=Path("target/linux/qualcommax/image/ipq60xx.mk"); s=p.read_text(); a="define Device/philips_ly1800\n\t$(call Device/emmc-common)\n"; assert s.count(a)==1; p.write_text(s.replace(a, a+"\t$(call Device/FitImageLzma)\n"))'
       - name: Install package feeds
         working-directory: source
         run: |
