@@ -1,0 +1,69 @@
+name: LY1800 BTF firmware (experimental)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    steps:
+      - name: Install build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang llvm libelf-dev dwarves flex bison gawk gettext git libncurses-dev libssl-dev python3 python3-setuptools rsync unzip zstd file wget curl xz-utils
+      - name: Fetch pinned LY1800 source
+        run: |
+          git init source
+          cd source
+          git remote add origin https://github.com/TerryLip/AX6NSS-immortalwrt.git
+          git fetch --depth 1 origin f9b0ce7650fdcc7f4793256a3ae43c1132e2bc49
+          git checkout --detach FETCH_HEAD
+          git rev-parse HEAD
+          grep -q 'Device/philips_ly1800' target/linux/qualcommax/image/ipq60xx.mk
+      - name: Install package feeds
+        working-directory: source
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+      - name: Configure LY1800 and BTF
+        working-directory: source
+        run: |
+          printf '%s\n' 'CONFIG_TARGET_qualcommax=y' 'CONFIG_TARGET_qualcommax_ipq60xx=y' 'CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_philips_ly1800=y' 'CONFIG_KERNEL_DEBUG_INFO=y' 'CONFIG_KERNEL_DEBUG_INFO_BTF=y' '# CONFIG_KERNEL_DEBUG_INFO_REDUCED is not set' 'CONFIG_KERNEL_CGROUP_BPF=y' 'CONFIG_PACKAGE_luci=y' 'CONFIG_PACKAGE_kmod-veth=y' 'CONFIG_PACKAGE_kmod-sched-core=y' 'CONFIG_PACKAGE_kmod-sched-bpf=y' 'CONFIG_PACKAGE_kmod-nft-queue=y' 'CONFIG_PACKAGE_kmod-nfnetlink-queue=y' > .config
+          make defconfig
+          grep -Fx 'CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_philips_ly1800=y' .config
+          grep -Fx 'CONFIG_KERNEL_DEBUG_INFO_BTF=y' .config
+          for PKG in kmod-veth kmod-sched-core kmod-sched-bpf kmod-nft-queue kmod-nfnetlink-queue; do grep -Fx "CONFIG_PACKAGE_$PKG=y" .config || { echo "Missing package: $PKG"; exit 1; }; done
+      - name: Download build sources
+        working-directory: source
+        run: make download -j4
+      - name: Compile firmware
+        working-directory: source
+        run: make -j4 || make -j1 V=s
+      - name: Verify BTF and collect outputs
+        working-directory: source
+        run: |
+          set -eu
+          mkdir -p ../output
+          KERNEL=$(find build_dir -type f -path '*/linux-*/vmlinux' -print -quit)
+          test -n "$KERNEL"
+          readelf -SW "$KERNEL" | grep -E '[.]BTF[[:space:]]'
+          llvm-objcopy --dump-section .BTF=../output/vmlinux.btf "$KERNEL"
+          test -s ../output/vmlinux.btf
+          KCONFIG=$(find build_dir -type f -path '*/linux-*/.config' -print -quit)
+          test -n "$KCONFIG"
+          cp "$KCONFIG" ../output/kernel.config
+          cp .config ../output/openwrt.config
+          for OPT in BPF BPF_SYSCALL BPF_JIT CGROUP_BPF NET_SCHED NET_CLS_ACT NET_XGRESS NET_NS DEBUG_INFO_BTF; do
+            grep -qx "CONFIG_$OPT=y" ../output/kernel.config || { echo "Missing CONFIG_$OPT=y"; exit 1; }
+          done
+          find bin/targets/qualcommax/ipq60xx -maxdepth 1 -type f -name '*philips_ly1800*' -exec cp {} ../output/ \;
+          ls ../output/*philips_ly1800* >/dev/null
+          cd ../output
+          sha256sum * > SHA256SUMS
+      - name: Upload experimental build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ly1800-btf-experimental
+          path: output/
+          retention-days: 7
