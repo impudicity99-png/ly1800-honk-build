@@ -33,10 +33,10 @@ jobs:
       - name: Configure LY1800 and BTF
         working-directory: source
         run: |
-          printf '%s\n' 'CONFIG_TARGET_qualcommax=y' 'CONFIG_TARGET_qualcommax_ipq60xx=y' 'CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_philips_ly1800=y' 'CONFIG_KERNEL_DEBUG_INFO=y' 'CONFIG_KERNEL_DEBUG_INFO_BTF=y' '# CONFIG_KERNEL_DEBUG_INFO_REDUCED is not set' 'CONFIG_KERNEL_CGROUP_BPF=y' 'CONFIG_PACKAGE_luci=y' 'CONFIG_PACKAGE_kmod-veth=y' 'CONFIG_PACKAGE_kmod-sched-core=y' 'CONFIG_PACKAGE_kmod-sched-bpf=y' 'CONFIG_PACKAGE_kmod-nft-queue=y' 'CONFIG_PACKAGE_kmod-nfnetlink-queue=y' > .config
+          printf '%s\n' 'CONFIG_TARGET_qualcommax=y' 'CONFIG_TARGET_qualcommax_ipq60xx=y' 'CONFIG_TARGET_qualcommax_ipq60xx_DEVICE_philips_ly1800=y' 'CONFIG_KERNEL_DEBUG_INFO=y' 'CONFIG_KERNEL_DEBUG_INFO_BTF=y' '# CONFIG_KERNEL_DEBUG_INFO_REDUCED is not set' 'CONFIG_KERNEL_CGROUP_BPF=y' 'CONFIG_PACKAGE_luci=y' 'CONFIG_PACKAGE_kmod-veth=y' 'CONFIG_PACKAGE_kmod-sched-core=y' 'CONFIG_PACKAGE_kmod-sched-bpf=y' 'CONFIG_PACKAGE_kmod-nft-queue=y' 'CONFIG_PACKAGE_kmod-nfnetlink-queue=y' > .config
           make defconfig || { echo 'defconfig failed'; exit 1; }
-          grep -E 'CONFIG_TARGET_qualcommax|CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_philips|CONFIG_KERNEL_DEBUG_INFO|CONFIG_PACKAGE_kmod-(veth|sched|nft-queue|nfnetlink-queue)' .config || true
-          grep -Fx 'CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_philips_ly1800=y' .config
+          grep -E 'CONFIG_TARGET_qualcommax|CONFIG_TARGET_qualcommax_ipq60xx_DEVICE_philips|CONFIG_KERNEL_DEBUG_INFO|CONFIG_PACKAGE_kmod-(veth|sched|nft-queue|nfnetlink-queue)' .config || true
+          grep -Fx 'CONFIG_TARGET_qualcommax_ipq60xx_DEVICE_philips_ly1800=y' .config
           grep -Fx 'CONFIG_KERNEL_DEBUG_INFO_BTF=y' .config
           for PKG in kmod-veth kmod-sched-core kmod-sched-bpf kmod-nft-queue kmod-nfnetlink-queue; do grep -Fx "CONFIG_PACKAGE_$PKG=y" .config || { echo "Missing package: $PKG"; exit 1; }; done
       - name: Download build sources
